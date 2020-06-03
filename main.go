@@ -78,14 +78,14 @@ func sendMoney(w http.ResponseWriter, r *http.Request) {
 
 		//Convert to json and send
 		w.Header().Set("Content-Type", "application/json")
-
-		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(dataReturn)
 	} else {
 		log.Printf("Addr is: " + addr)
 		vresponse, err := bc.ValidateAddress(addr)
 		handleError(err)
-		vamountosend := random.RangeInt(1, 1, 1)[0]
+		balance, err := bc.GetBalance("", 1)
+		handleError(err)
+		vamountosend := random.RangeInt(0, int(balance*0.025), 1)[0]
 		log.Printf("sending " + strconv.Itoa(vamountosend))
 
 		//Prepare stats
