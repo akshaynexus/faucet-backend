@@ -9,7 +9,7 @@ import (
 
 	"github.com/akshaynexus/go-bitcoind"
 	"github.com/albrow/forms"
-	"github.com/alok87/goutils/pkg/random"
+	// "github.com/alok87/goutils/pkg/random"
 )
 
 const (
@@ -61,11 +61,10 @@ func commonMiddleware(next http.Handler) http.Handler {
 }
 
 func handleRequests() {
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/stats", prepareStats)
-	http.HandleFunc("/send", sendMoney)
+	http.HandleFunc("/", prepareStats)
+	http.HandleFunc("/send/", sendMoney)
 
-	log.Fatal(http.ListenAndServe(":8081", nil))
+	log.Fatal(http.ListenAndServe(":3333", nil))
 }
 
 func sendMoney(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +82,7 @@ func sendMoney(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Addr is: " + addr)
 		vresponse, err := bc.ValidateAddress(addr)
 		handleError(err)
-		balance, err := bc.GetBalance("", 1)
-		handleError(err)
-		vamountosend := random.RangeInt(0, int(balance*0.025), 1)[0]
+		vamountosend := 50
 		log.Printf("sending " + strconv.Itoa(vamountosend))
 
 		//Prepare stats
