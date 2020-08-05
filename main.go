@@ -9,7 +9,8 @@ import (
 
 	"github.com/akshaynexus/go-bitcoind"
 	"github.com/albrow/forms"
-	// "github.com/alok87/goutils/pkg/random"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/handlers"
 )
 
 const (
@@ -53,6 +54,7 @@ func handleError(e error) {
 		log.Fatalln(e)
 	}
 }
+
 func commonMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
@@ -61,10 +63,23 @@ func commonMiddleware(next http.Handler) http.Handler {
 }
 
 func handleRequests() {
-	http.HandleFunc("/", prepareStats)
-	http.HandleFunc("/send/", sendMoney)
+	endpoints := map[string]http.HandlerFunc{
+		"/": prepareStats,
+		"/send": sendMoney,
+	}
+	port := ":3333"
+	var router = mux.NewRouter()
+    router.Use(commonMiddleware)
+	for endpoint, f := range endpoints {
+		router.HandleFunc(endpoint, f)
+	}
 
-	log.Fatal(http.ListenAndServe(":3333", nil))
+    headersOk := handlers.AllowedHeaders([]string{"Authorization"})
+    originsOk := handlers.AllowedOrigins([]string{"*"})
+    methodsOk := handlers.AllowedMethods([]string{"GET", "POST"})
+
+    fmt.Printf("Server is running at http://localhost%s\n", port)
+    log.Fatal(http.ListenAndServe(port, handlers.CORS(originsOk, headersOk, methodsOk)(router)))
 }
 
 func sendMoney(w http.ResponseWriter, r *http.Request) {
@@ -74,32 +89,25 @@ func sendMoney(w http.ResponseWriter, r *http.Request) {
 	addr := userData.Get("address") // addr will be "" if parameter is not set
 	if addr == "" {
 		dataReturn := &SendReturn{Error: "No address found", TxID: "", SentAmount: 0}
-
 		//Convert to json and send
-		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(dataReturn)
 	} else {
 		log.Printf("Addr is: " + addr)
 		vresponse, err := bc.ValidateAddress(addr)
 		handleError(err)
 		vamountosend := 50
-		log.Printf("sending " + strconv.Itoa(vamountosend))
-
 		//Prepare stats
 		if vresponse.IsValid {
+			log.Printf("sending " + strconv.Itoa(vamountosend))
 			txid, err := bc.SendToAddress(addr, float64(vamountosend), "faucet payout", addr)
 			handleError(err)
 			dataReturn := &SendReturn{Error: "", TxID: txid, SentAmount: vamountosend}
-
 			//Convert to json and send
-			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(dataReturn)
 
 		} else {
 			dataReturn := &SendReturn{Error: "Invalid address given", TxID: "", SentAmount: 0}
-
 			//Convert to json and send
-			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(dataReturn)
 		}
 	}
@@ -114,14 +122,11 @@ func prepareStats(w http.ResponseWriter, r *http.Request) {
 	handleError(err)
 	blocks, err := bc.GetBlockCount()
 	handleError(err)
-	stats := &StatsStruct{Balance: balance, Blocks: blocks, Totalsent: 1}
+	stats := &StatsStruct{Balance: balance, Blocks: blocks, Totalsent: 100}
 	//Convert to json and send
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
-
 }
 
 func main() {
-
 	handleRequests()
 }
